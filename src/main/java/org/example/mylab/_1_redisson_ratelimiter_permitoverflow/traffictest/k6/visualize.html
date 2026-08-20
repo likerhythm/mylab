@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RateLimiter 계측 리포트 · release vs non-release</title>
+    <style>
+        :root {
+            --bg:#eef2f7; --surface:#fff; --ink:#16202e; --muted:#667588;
+            --hairline:#dbe2ec; --grid:#eaeff5;
+            --teal:#0e9e92; --amber:#e08529;
+            --radius:14px;
+            --mono: ui-monospace, "Cascadia Mono", "Consolas", "D2Coding", monospace;
+            --disp: "Segoe UI", system-ui, -apple-system, "Malgun Gothic", sans-serif;
+            --body: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+        }
+        * { box-sizing:border-box; }
+        body {
+            margin:0;
+            background: linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 100% 26px, var(--bg);
+            color:var(--ink); font-family:var(--body); line-height:1.5;
+            -webkit-font-smoothing:antialiased;
+        }
+        .wrap { max-width:1080px; margin:0 auto; padding:40px 24px 80px; }
+
+        .eyebrow { font-family:var(--mono); font-size:12px; letter-spacing:.14em;
+            text-transform:uppercase; color:var(--muted); margin:0 0 10px; }
+        h1 { font-family:var(--disp); font-weight:700; font-size:clamp(26px,4.4vw,40px);
+            letter-spacing:-.02em; margin:0 0 8px; line-height:1.08; }
+        h1 .rl { color:var(--teal); }
+        header p { margin:0; color:var(--muted); max-width:62ch; font-size:15px; }
+
+        .drop { margin:26px 0; border:1.5px dashed var(--hairline); border-radius:var(--radius);
+            background:var(--surface); padding:26px; display:flex; align-items:center; gap:18px;
+            cursor:pointer; transition:border-color .15s, background .15s; }
+        .drop:hover, .drop.drag { border-color:var(--teal); background:#f7fbfb; }
+        .drop:focus-visible { outline:3px solid #0e9e9233; outline-offset:2px; }
+        .drop .glyph { font-family:var(--mono); font-size:22px; color:var(--teal);
+            border:1.5px solid var(--hairline); border-radius:10px; width:48px; height:48px;
+            display:grid; place-items:center; flex:none; }
+        .drop .txt strong { display:block; font-weight:600; font-size:15px; }
+        .drop .txt span { color:var(--muted); font-size:13px; }
+        input[type=file] { display:none; }
+
+        .readouts { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin:22px 0 30px; }
+        .card { background:var(--surface); border:1px solid var(--hairline); border-radius:var(--radius);
+            padding:16px 18px; position:relative; }
+        .card::before { content:""; position:absolute; left:0; top:14px; bottom:14px; width:3px; border-radius:3px; }
+        .card.teal::before { background:var(--teal); }
+        .card.amber::before { background:var(--amber); }
+        .card .k { font-family:var(--mono); font-size:11px; letter-spacing:.08em;
+            text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+        .card .v { font-family:var(--mono); font-weight:700; font-size:26px; letter-spacing:-.02em; }
+        .card .sub { font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:3px; }
+
+        .panel { background:var(--surface); border:1px solid var(--hairline);
+            border-radius:var(--radius); padding:22px 22px 16px; }
+        .panel h2 { font-family:var(--disp); font-size:16px; font-weight:600; margin:0 0 4px; letter-spacing:-.01em; }
+        .legend { display:flex; flex-wrap:wrap; gap:16px; font-family:var(--mono); font-size:12px;
+            color:var(--muted); margin:12px 0 6px; }
+        .legend span { display:inline-flex; align-items:center; gap:7px; }
+        .swatch { width:22px; height:0; border-top-width:3px; border-top-style:solid; }
+        .sw-ts { border-color:var(--teal); }
+        .sw-tr { border-color:var(--teal); border-top-style:dashed; }
+        .sw-as { border-color:var(--amber); }
+        .sw-ar { border-color:var(--amber); border-top-style:dashed; }
+
+        .chart-box { position:relative; margin-top:6px; }
+        .chart-box svg { display:block; width:100%; height:auto; }
+        .tip { position:absolute; pointer-events:none; background:#16202e; color:#fff;
+            font-family:var(--mono); font-size:11px; padding:8px 10px; border-radius:8px;
+            white-space:nowrap; opacity:0; transform:translate(-50%,-100%); transition:opacity .1s; z-index:5; }
+        .tip b { color:#8fd6cf; }
+        .tip .amb { color:#f3b878; }
+
+        .tbl-wrap { margin-top:30px; overflow-x:auto; }
+        table { width:100%; border-collapse:collapse; font-family:var(--mono); font-size:13px; }
+        th, td { padding:9px 12px; text-align:right; border-bottom:1px solid var(--hairline); white-space:nowrap; }
+        th { color:var(--muted); font-weight:500; font-size:11px; letter-spacing:.05em; text-transform:uppercase; }
+        th:first-child, td:first-child { text-align:left; }
+        tbody tr:hover { background:#f7fafc; }
+        tfoot td { font-weight:700; border-top:2px solid var(--ink); border-bottom:none; }
+        .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; vertical-align:middle; }
+        .dot.teal { background:var(--teal); } .dot.amber { background:var(--amber); }
+
+        .note { margin-top:26px; font-size:13px; color:var(--muted); font-family:var(--mono);
+            background:var(--surface); border:1px solid var(--hairline); border-radius:var(--radius); padding:16px 18px; }
+        .note code { color:var(--ink); }
+        .banner { display:none; font-family:var(--mono); font-size:12px; color:var(--amber); margin-top:10px; }
+        .banner.show { display:block; }
+
+        @media (max-width:720px){ .readouts { grid-template-columns:repeat(2,1fr); } }
+        @media (prefers-reduced-motion:reduce){ * { transition:none !important; } }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <header>
+        <p class="eyebrow">Redisson RRateLimiter · k6 load test</p>
+        <h1><span class="rl">release</span> vs non-release &mdash; 10회 계측</h1>
+        <p>초당 20요청 · 30초 부하를 10회 반복한 결과입니다. permit을 반환하는 API와 반환하지 않는 API가 각 실행에서 몇 개의 요청을 통과(2xx)시키고 몇 개를 거부(429)했는지 비교합니다.</p>
+    </header>
+
+    <label class="drop" id="drop" tabindex="0">
+        <div class="glyph">{ }</div>
+        <div class="txt">
+            <strong>aggregated.json 불러오기</strong>
+            <span>클릭하거나 파일을 여기로 끌어다 놓으세요 · { "runs": [ … ] } 형식</span>
+        </div>
+        <input type="file" id="file" accept=".json,application/json" />
+    </label>
+    <div class="banner" id="banner">※ 샘플 데이터를 표시 중입니다. 실제 결과 JSON을 불러오세요.</div>
+
+    <div class="readouts" id="readouts"></div>
+
+    <section class="panel">
+        <h2>실행별 성공 / 거부 추이</h2>
+        <div class="legend">
+            <span><i class="swatch sw-ts"></i> do-release · 성공</span>
+            <span><i class="swatch sw-tr"></i> do-release · 거부</span>
+            <span><i class="swatch sw-as"></i> non-release · 성공</span>
+            <span><i class="swatch sw-ar"></i> non-release · 거부</span>
+        </div>
+        <div class="chart-box" id="chartBox">
+            <svg id="chart" viewBox="0 0 800 380" preserveAspectRatio="xMidYMid meet"></svg>
+            <div class="tip" id="tip"></div>
+        </div>
+    </section>
+
+    <div class="tbl-wrap">
+        <table id="table">
+            <thead>
+            <tr>
+                <th>Run</th>
+                <th><span class="dot teal"></span>do · 성공</th>
+                <th>do · 거부</th>
+                <th><span class="dot amber"></span>non · 성공</th>
+                <th>non · 거부</th>
+            </tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot></tfoot>
+        </table>
+    </div>
+
+    <div class="note">
+        입력 JSON 형식 &mdash; <code>{ "runs": [ { "run": 1, "do_release": { "success": N, "rejected": N }, "non_release": { "success": N, "rejected": N } }, … ] }</code><br>
+        <code>run-10x.ps1</code> (또는 <code>run-10x.sh</code>) 을 실행하면 <code>results/aggregated.json</code> 이 이 형식으로 생성됩니다.
+    </div>
+</div>
+
+<script>
+    (function () {
+        var TEAL = '#0e9e92', AMBER = '#e08529';
+        var SVGNS = 'http://www.w3.org/2000/svg';
+
+        var demo = { runs: [
+                { run:1,  do_release:{success:512,rejected:88},  non_release:{success:322,rejected:278} },
+                { run:2,  do_release:{success:498,rejected:102}, non_release:{success:305,rejected:295} },
+                { run:3,  do_release:{success:531,rejected:69},  non_release:{success:334,rejected:266} },
+                { run:4,  do_release:{success:505,rejected:95},  non_release:{success:298,rejected:302} },
+                { run:5,  do_release:{success:520,rejected:80},  non_release:{success:341,rejected:259} },
+                { run:6,  do_release:{success:489,rejected:111}, non_release:{success:312,rejected:288} },
+                { run:7,  do_release:{success:515,rejected:85},  non_release:{success:327,rejected:273} },
+                { run:8,  do_release:{success:526,rejected:74},  non_release:{success:318,rejected:282} },
+                { run:9,  do_release:{success:502,rejected:98},  non_release:{success:309,rejected:291} },
+                { run:10, do_release:{success:518,rejected:82},  non_release:{success:330,rejected:270} }
+            ]};
+
+        var W = 800, H = 380, padL = 52, padR = 18, padT = 18, padB = 40;
+        var plotW = W - padL - padR, plotH = H - padT - padB;
+        var current = [];
+
+        function normalize(json) {
+            var runs = Array.isArray(json) ? json : (json && json.runs) ? json.runs : null;
+            if (!runs) throw new Error('runs 배열을 찾을 수 없습니다.');
+            runs = runs.slice().sort(function (a, b) { return (a.run || 0) - (b.run || 0); });
+            return runs.map(function (r, i) {
+                return {
+                    run: r.run != null ? r.run : i + 1,
+                    dS: (r.do_release && r.do_release.success) || 0,
+                    dR: (r.do_release && r.do_release.rejected) || 0,
+                    nS: (r.non_release && r.non_release.success) || 0,
+                    nR: (r.non_release && r.non_release.rejected) || 0
+                };
+            });
+        }
+
+        function el(name, attrs) {
+            var e = document.createElementNS(SVGNS, name);
+            for (var k in attrs) e.setAttribute(k, attrs[k]);
+            return e;
+        }
+
+        function niceMax(v) {
+            if (v <= 0) return 10;
+            var pow = Math.pow(10, Math.floor(Math.log10(v)));
+            var n = v / pow;
+            var step = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
+            return step * pow;
+        }
+
+        function xFor(i, n) { return n <= 1 ? padL + plotW / 2 : padL + plotW * (i / (n - 1)); }
+
+        function draw(rows) {
+            current = rows;
+            var n = rows.length;
+            var svg = document.getElementById('chart');
+            while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+            var maxV = 0;
+            rows.forEach(function (r) { maxV = Math.max(maxV, r.dS, r.dR, r.nS, r.nR); });
+            var yMax = niceMax(maxV);
+            var yFor = function (v) { return padT + plotH * (1 - v / yMax); };
+
+            // 가로 그리드 + y 라벨
+            var ticks = 5;
+            for (var t = 0; t <= ticks; t++) {
+                var val = yMax * t / ticks;
+                var y = yFor(val);
+                svg.appendChild(el('line', { x1: padL, y1: y, x2: W - padR, y2: y,
+                    stroke: '#eef2f7', 'stroke-width': 1 }));
+                var lab = el('text', { x: padL - 8, y: y + 4, 'text-anchor': 'end',
+                    'font-family': 'monospace', 'font-size': 11, fill: '#667588' });
+                lab.textContent = Math.round(val).toLocaleString('ko-KR');
+                svg.appendChild(lab);
+            }
+
+            // x 라벨
+            rows.forEach(function (r, i) {
+                var x = xFor(i, n);
+                var lab = el('text', { x: x, y: H - padB + 20, 'text-anchor': 'middle',
+                    'font-family': 'monospace', 'font-size': 11, fill: '#667588' });
+                lab.textContent = r.run;
+                svg.appendChild(lab);
+            });
+
+            // 시리즈
+            var series = [
+                { key: 'dS', color: TEAL,  dash: null },
+                { key: 'dR', color: TEAL,  dash: '6,4' },
+                { key: 'nS', color: AMBER, dash: null },
+                { key: 'nR', color: AMBER, dash: '6,4' }
+            ];
+            series.forEach(function (s) {
+                var pts = rows.map(function (r, i) { return xFor(i, n) + ',' + yFor(r[s.key]); }).join(' ');
+                var attrs = { points: pts, fill: 'none', stroke: s.color, 'stroke-width': 2.5,
+                    'stroke-linejoin': 'round', 'stroke-linecap': 'round' };
+                if (s.dash) attrs['stroke-dasharray'] = s.dash;
+                svg.appendChild(el('polyline', attrs));
+                rows.forEach(function (r, i) {
+                    svg.appendChild(el('circle', { cx: xFor(i, n), cy: yFor(r[s.key]), r: 3.4,
+                        fill: '#fff', stroke: s.color, 'stroke-width': 2 }));
+                });
+            });
+
+            // 호버 가이드라인
+            var guide = el('line', { x1: 0, y1: padT, x2: 0, y2: H - padB,
+                stroke: '#c3ccd8', 'stroke-width': 1, 'stroke-dasharray': '3,3', opacity: 0 });
+            svg.appendChild(guide);
+            svg._guide = guide; svg._yMax = yMax;
+        }
+
+        var tip = document.getElementById('tip');
+        var box = document.getElementById('chartBox');
+
+        function onMove(evt) {
+            var rows = current, n = rows.length;
+            if (!n) return;
+            var svg = document.getElementById('chart');
+            var rect = svg.getBoundingClientRect();
+            var vx = (evt.clientX - rect.left) / rect.width * W;   // viewBox 좌표로 변환
+            // 가장 가까운 인덱스
+            var best = 0, bestD = Infinity;
+            for (var i = 0; i < n; i++) {
+                var d = Math.abs(xFor(i, n) - vx);
+                if (d < bestD) { bestD = d; best = i; }
+            }
+            var r = rows[best];
+            var gx = xFor(best, n);
+            svg._guide.setAttribute('x1', gx);
+            svg._guide.setAttribute('x2', gx);
+            svg._guide.setAttribute('opacity', 1);
+
+            var leftPx = gx / W * rect.width;
+            var topPx = (rect.top - box.getBoundingClientRect().top) + 8;
+            tip.style.left = leftPx + 'px';
+            tip.style.top = topPx + 'px';
+            tip.innerHTML =
+                'Run ' + r.run + '<br>' +
+                '<b>do</b> 성공 ' + r.dS + ' · 거부 ' + r.dR + '<br>' +
+                '<span class="amb">non</span> 성공 ' + r.nS + ' · 거부 ' + r.nR;
+            tip.style.opacity = 1;
+        }
+        function onLeave() {
+            tip.style.opacity = 0;
+            var svg = document.getElementById('chart');
+            if (svg._guide) svg._guide.setAttribute('opacity', 0);
+        }
+        box.addEventListener('mousemove', onMove);
+        box.addEventListener('mouseleave', onLeave);
+
+        function sum(rows, k) { return rows.reduce(function (a, r) { return a + r[k]; }, 0); }
+        function fmt(n) { return n.toLocaleString('ko-KR'); }
+
+        function renderReadouts(rows) {
+            var n = rows.length || 1;
+            var cards = [
+                { cls:'teal',  k:'do-release 총 성공',  v:sum(rows,'dS') },
+                { cls:'teal',  k:'do-release 총 거부',  v:sum(rows,'dR') },
+                { cls:'amber', k:'non-release 총 성공', v:sum(rows,'nS') },
+                { cls:'amber', k:'non-release 총 거부', v:sum(rows,'nR') }
+            ];
+            document.getElementById('readouts').innerHTML = cards.map(function (c) {
+                return '<div class="card ' + c.cls + '"><div class="k">' + c.k +
+                    '</div><div class="v">' + fmt(c.v) +
+                    '</div><div class="sub">평균 ' + Math.round(c.v / n) + ' / run</div></div>';
+            }).join('');
+        }
+
+        function renderTable(rows) {
+            document.querySelector('#table tbody').innerHTML = rows.map(function (r) {
+                return '<tr><td>Run ' + r.run + '</td><td>' + fmt(r.dS) + '</td><td>' + fmt(r.dR) +
+                    '</td><td>' + fmt(r.nS) + '</td><td>' + fmt(r.nR) + '</td></tr>';
+            }).join('');
+            document.querySelector('#table tfoot').innerHTML =
+                '<tr><td>합계</td><td>' + fmt(sum(rows,'dS')) + '</td><td>' + fmt(sum(rows,'dR')) +
+                '</td><td>' + fmt(sum(rows,'nS')) + '</td><td>' + fmt(sum(rows,'nR')) + '</td></tr>';
+        }
+
+        function renderAll(rows) { draw(rows); renderReadouts(rows); renderTable(rows); }
+
+        // 파일 로딩
+        var drop = document.getElementById('drop');
+        var fileInput = document.getElementById('file');
+        var banner = document.getElementById('banner');
+
+        function loadFile(file) {
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    var rows = normalize(JSON.parse(e.target.result));
+                    banner.classList.remove('show');
+                    renderAll(rows);
+                } catch (err) {
+                    alert('JSON을 읽을 수 없습니다: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        fileInput.addEventListener('change', function (e) { if (e.target.files[0]) loadFile(e.target.files[0]); });
+        drop.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+        });
+        ['dragenter','dragover'].forEach(function (ev) {
+            drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('drag'); });
+        });
+        ['dragleave','drop'].forEach(function (ev) {
+            drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('drag'); });
+        });
+        drop.addEventListener('drop', function (e) { var f = e.dataTransfer.files[0]; if (f) loadFile(f); });
+
+        // 초기: 샘플
+        banner.classList.add('show');
+        renderAll(normalize(demo));
+    })();
+</script>
+</body>
+</html>

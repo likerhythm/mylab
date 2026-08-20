@@ -24,9 +24,9 @@ public class Simulator {
             limiter.tryAcquire(1);
             Thread.sleep(SimulationConfig.RELEASE_DELAY_MS);
             limiter.release(1);
+            long permits = limiter.availablePermits(); // 현재 사용 가능한 permit 수
 
             long tMs = (System.nanoTime() - startNano) / 1_000_000;
-            long permits = limiter.availablePermits(); // 현재 사용 가능한 permit 수
             long history = config.historySize();
             samples.add(new long[]{tMs, permits, history});
             count++;

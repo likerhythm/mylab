@@ -1,0 +1,11 @@
+{
+  "run": 5,
+  "non_release": {
+    "success": 292,
+    "rejected": 309
+  },
+  "do_release": {
+    "success": 405,
+    "rejected": 195
+  }
+}

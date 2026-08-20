@@ -12,7 +12,7 @@ public class SimulationConfig {
     public static final int RELEASE_DELAY_MS = 100;
 
     /** 총 실행 시간 (sec) */
-    public static final int DURATION_SEC = 10;
+    public static final int DURATION_SEC = 30;
 
     private SimulationConfig() {}
 }
