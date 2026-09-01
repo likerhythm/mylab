@@ -26,8 +26,7 @@ public class Simulator {
             limiter.tryAcquire(1);
             Thread.sleep(SimulationConfig.RELEASE_DELAY_MS);
             limiter.release(1);
-            long permits = limiter.availablePermits(); // 현재 사용 가능한 permit 수
-
+            long permits = limiter.availablePermits();
             long tMs = (System.nanoTime() - startNano) / 1_000_000;
             long history = config.historySize();
             samples.add(new long[]{tMs, permits, history});
@@ -52,7 +51,7 @@ public class Simulator {
                 + "}\n";
         try {
             String packagePath = getClass().getPackageName().replace('.', '/');
-            Path dir = Path.of("src", "main", "java", packagePath);
+            Path dir = moduleRoot().resolve(Path.of("src", "main", "java", packagePath));
             Files.createDirectories(dir);
             Path out = dir.resolve("permit-history.json");
             Files.writeString(out, json);
@@ -60,5 +59,20 @@ public class Simulator {
         } catch (Exception e) {
             System.out.println("파일 저장 실패: " + e.getMessage());
         }
+    }
+
+    private Path moduleRoot() {
+        try {
+            Path p = Path.of(getClass().getProtectionDomain()
+                    .getCodeSource().getLocation().toURI());
+            while (p != null && !Files.isDirectory(p.resolve("src"))) {
+                p = p.getParent();
+            }
+            if (p != null) {
+                return p;
+            }
+        } catch (Exception e) {
+        }
+        return Path.of("").toAbsolutePath();
     }
 }
