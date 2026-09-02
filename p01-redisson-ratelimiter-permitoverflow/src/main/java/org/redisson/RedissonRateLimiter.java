@@ -236,9 +236,7 @@ public final class RedissonRateLimiter extends RedissonExpirable implements RRat
                                     + "local random, permits = struct.unpack('Bc0I', v);"
                                     + "used = used + permits;"
                                 + "end; "
-                                + "if used + tonumber(currentValue) <= tonumber(rate) then "
-                                    + "currentValue = tonumber(rate) - used; "
-                                + "end; "
+                                + "currentValue = tonumber(rate) - used; "
                             + "else "
                                 + "currentValue = tonumber(currentValue) + released; "
                             + "end; "
@@ -599,9 +597,9 @@ public final class RedissonRateLimiter extends RedissonExpirable implements RRat
                         + "redis.call('zremrangebyscore', permitsName, 0, tonumber(ARGV[1]) - interval); "
                         + "currentValue = tonumber(currentValue) + released; "
                         /** 수정된 부분 시작 */
-                        + "if currentValue > tonumber(rate) then "
-                        + "currentValue = tonumber(rate); "
-                        + "end; "
+//                        + "if currentValue > tonumber(rate) then "
+//                        + "currentValue = tonumber(rate); "
+//                        + "end; "
                         /** 수정된 부분 끝 */
                         + "redis.call('set', valueName, currentValue);"
                         + "end;"
