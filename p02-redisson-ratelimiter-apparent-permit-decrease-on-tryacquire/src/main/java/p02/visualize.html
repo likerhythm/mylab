@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Permit &amp; Consumption History Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <style>
+        :root{
+            --bg:#ffffff; --panel:#ffffff; --line:#e5e7eb; --ink:#1f2937; --muted:#6b7280;
+            --permits:#2563eb; --history:#16a34a; --cap:#f59e0b; --danger:#dc2626;
+        }
+        *{box-sizing:border-box}
+        body{margin:0;background:var(--bg);color:var(--ink);
+            font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+            line-height:1.6;padding:32px 20px}
+        .wrap{max-width:900px;margin:0 auto}
+        h1{font-size:21px;margin:0 0 6px;letter-spacing:-.02em}
+        .sub{color:var(--muted);font-size:14px;margin:0 0 22px}
+        .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+            padding:20px;margin-bottom:18px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+        .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+        textarea{width:100%;min-height:84px;background:#f9fafb;color:var(--ink);border:1px solid var(--line);
+            border-radius:10px;padding:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;resize:vertical}
+        button{background:var(--permits);color:#fff;border:none;border-radius:9px;padding:9px 16px;
+            font-weight:600;font-size:14px;cursor:pointer}
+        button.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+        label.upload{padding:9px 16px;border-radius:9px;cursor:pointer;border:1px solid var(--line);
+            background:#fff;font-size:14px}
+        .chips{display:flex;flex-wrap:wrap;gap:8px;margin:0}
+        .chip{background:#f3f4f6;border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--muted)}
+        .chip b{color:var(--ink);font-weight:600}
+        .callout{border-radius:12px;padding:13px 16px;font-size:14px;display:none;margin-top:14px}
+        .callout.over{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;display:block}
+        .callout.ok{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;display:block}
+        .label{font-size:12px;color:var(--muted);margin:0 0 10px;text-transform:uppercase;letter-spacing:.06em}
+        canvas{margin-top:6px}
+        code{background:#f3f4f6;padding:1px 6px;border-radius:5px;font-size:12px}
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <h1>Permit · Consumption History Over Time</h1>
+    <p class="sub">Overlays <code>availablePermits()</code> (the <code>value</code> key) and the size of the
+        <code>permits</code> sorted set (ZCARD), each recorded right after every <code>release()</code>,
+        along a shared time axis. Upload or paste your <code>permit-history.json</code>.</p>
+
+    <div class="panel">
+        <p class="label">Data input</p>
+        <div class="controls" style="margin-bottom:12px">
+            <label class="upload">Upload permit-history.json
+                <input id="file" type="file" accept=".json,application/json" style="display:none">
+            </label>
+            <button id="demo" class="ghost">Load sample data</button>
+        </div>
+        <textarea id="paste" placeholder='Or paste here — the following formats are accepted:
+· the full permit-history.json
+· an array like [{"t":12,"permits":9,"history":1}, ...]'></textarea>
+        <div class="controls" style="margin-top:12px">
+            <button id="draw">Draw chart</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="chips" id="chips">
+            <span class="chip">rate <b id="c-rate">–</b></span>
+            <span class="chip">interval <b id="c-interval">–</b></span>
+            <span class="chip">release delay <b id="c-delay">–</b></span>
+            <span class="chip">max availablePermits <b id="c-maxp">–</b></span>
+            <span class="chip">max permits zset size <b id="c-maxh">–</b></span>
+        </div>
+        <div id="callout" class="callout"></div>
+        <canvas id="chart" height="200"></canvas>
+    </div>
+</div>
+
+<script>
+    const RATE_FALLBACK = 10;
+    let chart;
+
+    // ── Generate sample data (to preview the chart shape without a real run) ──
+    function demoData(){
+        const rate=10, interval=100, step=12, dur=3000;
+        const events=[]; const samples=[];
+        for(let t=0; t<=dur; t+=step){
+            events.push(t);                                   // add this consumption to the history
+            while(events.length && events[0] <= t-interval) events.shift(); // drop expired entries
+            const history=events.length;
+            // From 100ms onward, mimic a currentValue that drifts up due to double reclamation
+            let permits = t<interval ? 9 + (t%step<step/2?0:1)
+                : Math.min(9 + (t-interval)/220 + (Math.random()<.3?1:0), 22);
+            samples.push({t, permits:Math.round(permits), history});
+        }
+        return {config:{rate,intervalMs:interval,releaseDelayMs:10,durationSec:3}, samples};
+    }
+
+    // ── Parser ──
+    function parseInput(text){
+        text=text.trim();
+        if(!text) throw new Error('Input is empty.');
+        let obj;
+        try{ obj=JSON.parse(text); }
+        catch(_){ throw new Error('Failed to parse JSON. Please check the format.'); }
+        if(Array.isArray(obj)) obj={samples:obj};
+        if(!obj.samples || !obj.samples.length) throw new Error('Could not find a "samples" array.');
+        const samples=obj.samples.map((s,i)=>({
+            t: s.t!==undefined? Number(s.t) : i,
+            permits: Number(s.permits),
+            history: s.history!==undefined? Number(s.history) : null
+        }));
+        return {config:obj.config||null, samples};
+    }
+
+    // ── Render ──
+    function render(data){
+        const rate=data.config?.rate ?? RATE_FALLBACK;
+        const S=data.samples;
+        const permitsData=S.map(s=>({x:s.t, y:s.permits}));
+        const historyData=S.map(s=>({x:s.t, y:s.history}));
+        const maxP=Math.max(...S.map(s=>s.permits));
+        const maxH=Math.max(...S.map(s=>s.history ?? 0));
+
+        document.getElementById('c-rate').textContent     = rate;
+        document.getElementById('c-interval').textContent = data.config? data.config.intervalMs+'ms':'–';
+        document.getElementById('c-delay').textContent    = data.config? data.config.releaseDelayMs+'ms':'–';
+        document.getElementById('c-maxp').textContent     = maxP;
+        document.getElementById('c-maxh').textContent     = maxH;
+
+        const co=document.getElementById('callout');
+        if(maxP>rate){
+            const over=((maxP-rate)/rate*100).toFixed(0);
+            co.className='callout over';
+            co.innerHTML=`⚠ <b>rate exceeded.</b> <code>availablePermits()</code> rose to <b>${maxP}</b>, which is
+      <b>+${over}%</b> over the configured <code>rate</code> (${rate}). Permits returned via <code>release()</code>
+      are reconciled a second time when the interval-expired permits are reclaimed — a double reclamation.`;
+        }else{
+            co.className='callout ok';
+            co.innerHTML=`In this run, <code>availablePermits()</code> never exceeded <code>rate</code> (${rate}).`;
+        }
+
+        const yMax=Math.max(maxP, maxH, rate)+2;
+        const cfg={
+            type:'line',
+            data:{ datasets:[
+                    { label:'Available Permits', data:permitsData, borderColor:'#2563eb',
+                        backgroundColor:'rgba(37,99,235,.08)', borderWidth:2, pointRadius:0, tension:.15, fill:true },
+                    { label:'Permits in Sorted Set', data:historyData, borderColor:'#16a34a',
+                        borderWidth:2, pointRadius:0, tension:.15, fill:false },
+                    { label:`rate = ${rate}`, data:[{x:S[0].t,y:rate},{x:S[S.length-1].t,y:rate}],
+                        borderColor:'#f59e0b', borderDash:[6,5], borderWidth:1.5, pointRadius:0, fill:false }
+                ]},
+            options:{
+                responsive:true, animation:false,
+                interaction:{mode:'index', intersect:false},
+                plugins:{ legend:{labels:{color:'#1f2937'}} },
+                scales:{
+                    x:{ type:'linear', title:{display:true,text:'Elapsed time (ms)',color:'#6b7280'},
+                        grid:{color:'#f0f1f3'}, ticks:{color:'#6b7280'} },
+                    y:{ beginAtZero:true, suggestedMax:yMax,
+                        title:{display:true,text:'Count',color:'#6b7280'},
+                        grid:{color:'#f0f1f3'}, ticks:{color:'#6b7280'} }
+                }
+            }
+        };
+        if(chart) chart.destroy();
+        chart=new Chart(document.getElementById('chart'), cfg);
+    }
+
+    // ── Events ──
+    document.getElementById('draw').onclick=()=>{
+        try{ render(parseInput(document.getElementById('paste').value)); }
+        catch(e){ alert(e.message); }
+    };
+    document.getElementById('demo').onclick=()=>{
+        const d=demoData();
+        document.getElementById('paste').value=JSON.stringify(d);
+        render(d);
+    };
+    document.getElementById('file').onchange=(e)=>{
+        const f=e.target.files[0]; if(!f) return;
+        const r=new FileReader();
+        r.onload=()=>{ document.getElementById('paste').value=r.result;
+            try{ render(parseInput(r.result)); }catch(err){ alert(err.message); } };
+        r.readAsText(f);
+    };
+
+    // Initial view: pre-render with sample data
+    render(demoData());
+</script>
+</body>
+</html>
