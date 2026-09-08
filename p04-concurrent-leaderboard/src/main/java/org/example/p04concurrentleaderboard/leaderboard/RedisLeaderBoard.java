@@ -17,9 +17,14 @@ public class RedisLeaderBoard {
     }
 
     public void apply(LeaderBoardApplyDto dto) {
-        // TODO 신규 사용자일 경우 oldMember == null: newScore 계산할 때 NPE 발생
         String oldMember = memberInfo.get(dto.userId());
-        Long newScore = ranking.getScore(oldMember).longValue() + dto.diff();
+        Long newScore = dto.diff();
+        if (oldMember != null) {
+            newScore += ranking.getScore(oldMember).longValue() + dto.diff();
+        }
+        if (newScore < 0) {
+            throw new NegativeBalanceException(newScore);
+        }
         ScoreEntry newEntry = new ScoreEntry(dto.userId(), newScore, dto.instant());
         doAdd(newEntry);
     }
