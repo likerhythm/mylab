@@ -16,6 +16,8 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import org.example.p04concurrentleaderboard.leaderboard.dto.LeaderBoardApplyDto;
+import org.example.p04concurrentleaderboard.leaderboard.exception.NegativeBalanceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

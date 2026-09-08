@@ -1,4 +1,4 @@
-package org.example.p04concurrentleaderboard.purchase;
+package org.example.p04concurrentleaderboard.purchase.request;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;

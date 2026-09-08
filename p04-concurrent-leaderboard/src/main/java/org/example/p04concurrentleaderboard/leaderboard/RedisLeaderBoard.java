@@ -2,6 +2,9 @@ package org.example.p04concurrentleaderboard.leaderboard;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+import org.example.p04concurrentleaderboard.leaderboard.dto.LeaderBoardApplyDto;
+import org.example.p04concurrentleaderboard.leaderboard.dto.ScoreEntry;
+import org.example.p04concurrentleaderboard.leaderboard.exception.NegativeBalanceException;
 import org.redisson.api.RMap;
 import org.redisson.api.RScoredSortedSet;
 import org.redisson.api.RedissonClient;

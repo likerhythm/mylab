@@ -1,4 +1,4 @@
-package org.example.p04concurrentleaderboard.purchase;
+package org.example.p04concurrentleaderboard.purchase.entity;
 
 import jakarta.persistence.*;
 import java.time.Instant;

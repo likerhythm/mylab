@@ -3,11 +3,11 @@ package org.example.p04concurrentleaderboard.purchase.service;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.example.p04concurrentleaderboard.event.Event;
-import org.example.p04concurrentleaderboard.leaderboard.LeaderBoardApplyDto;
+import org.example.p04concurrentleaderboard.leaderboard.dto.LeaderBoardApplyDto;
 import org.example.p04concurrentleaderboard.leaderboard.RedisLeaderBoard;
-import org.example.p04concurrentleaderboard.purchase.Purchase;
-import org.example.p04concurrentleaderboard.purchase.PurchaseRepository;
-import org.example.p04concurrentleaderboard.purchase.PurchaseRequest;
+import org.example.p04concurrentleaderboard.purchase.entity.Purchase;
+import org.example.p04concurrentleaderboard.purchase.repository.PurchaseRepository;
+import org.example.p04concurrentleaderboard.purchase.request.PurchaseRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

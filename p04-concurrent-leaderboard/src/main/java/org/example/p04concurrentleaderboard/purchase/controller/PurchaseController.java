@@ -1,7 +1,7 @@
 package org.example.p04concurrentleaderboard.purchase.controller;
 
 import lombok.RequiredArgsConstructor;
-import org.example.p04concurrentleaderboard.purchase.PurchaseRequest;
+import org.example.p04concurrentleaderboard.purchase.request.PurchaseRequest;
 import org.example.p04concurrentleaderboard.purchase.service.PurchaseService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

@@ -1,4 +1,4 @@
-package org.example.p04concurrentleaderboard.event;
+package org.example.p04concurrentleaderboard.event.request;
 
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;

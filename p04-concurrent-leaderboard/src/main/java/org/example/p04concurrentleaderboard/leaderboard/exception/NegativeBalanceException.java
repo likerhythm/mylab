@@ -1,4 +1,4 @@
-package org.example.p04concurrentleaderboard.leaderboard;
+package org.example.p04concurrentleaderboard.leaderboard.exception;
 
 public class NegativeBalanceException extends RuntimeException {
 

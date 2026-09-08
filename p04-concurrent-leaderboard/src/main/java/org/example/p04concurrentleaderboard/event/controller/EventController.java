@@ -1,6 +1,8 @@
-package org.example.p04concurrentleaderboard.event;
+package org.example.p04concurrentleaderboard.event.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.example.p04concurrentleaderboard.event.request.ConfigEventRequest;
+import org.example.p04concurrentleaderboard.event.Event;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
