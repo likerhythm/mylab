@@ -17,6 +17,7 @@ public class RedisLeaderBoard {
     }
 
     public void apply(LeaderBoardApplyDto dto) {
+        // TODO 신규 사용자일 경우 oldMember == null: newScore 계산할 때 NPE 발생
         String oldMember = memberInfo.get(dto.userId());
         Long newScore = ranking.getScore(oldMember).longValue() + dto.diff();
         ScoreEntry newEntry = new ScoreEntry(dto.userId(), newScore, dto.instant());
@@ -34,6 +35,7 @@ public class RedisLeaderBoard {
         return ranking.getScore(member).longValue();
     }
 
+    // TODO 동시성 문제 있음: 동시에 두 스레드가 점수를 갱신하면 한 명의 사용자에 두 개의 member가 등록될 수 있다.
     private void doAdd(ScoreEntry newEntry) {
         String newMember = buildMember(newEntry);
 

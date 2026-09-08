@@ -17,6 +17,7 @@ public class PurchaseService {
     private final PurchaseRepository purchaseRepository;
     private final RedisLeaderBoard redisLeaderBoard;
 
+    // TODO Redis와 DB 간 원자성이 없음: Redis에는 반영했는데 DB에 실패하면??
     @Transactional
     public void submit(PurchaseRequest request) {
         // TODO 이벤트 마감 기간 확인 필요
