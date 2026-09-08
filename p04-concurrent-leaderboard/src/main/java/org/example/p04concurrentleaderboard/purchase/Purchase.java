@@ -27,6 +27,9 @@ public class Purchase {
     @Column(nullable = false)
     private Instant createdAt;
 
+    @Column
+    private Long rank;
+
     protected Purchase() {
     }
 

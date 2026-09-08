@@ -21,6 +21,9 @@ public class Refund {
     @Column(nullable = false)
     private Instant createdAt;
 
+    @Column
+    private Long rank;
+
     protected Refund() {
     }
 
