@@ -1,8 +1,6 @@
-package org.example.p04concurrentleaderboard.purchase.controller;
+package org.example.p04concurrentleaderboard.event;
 
 import lombok.RequiredArgsConstructor;
-import org.example.p04concurrentleaderboard.purchase.PurchaseRequest;
-import org.example.p04concurrentleaderboard.purchase.service.PurchaseService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -13,16 +11,15 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/purchase")
-public class PurchaseController {
-
-    private final PurchaseService purchaseService;
+@RequestMapping("/api/event")
+public class EventController {
 
     @PostMapping
-    public ResponseEntity<Void> purchase(
-            @RequestBody @Validated PurchaseRequest request
+    public ResponseEntity<Void> configEvent(
+            @RequestBody @Validated ConfigEventRequest request
     ) {
-        purchaseService.submit(request);
+        Event.setStartAt(request.startAt());
+        Event.setEndAt(request.endAt());
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 }

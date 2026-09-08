@@ -2,6 +2,7 @@ package org.example.p04concurrentleaderboard.purchase.service;
 
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
+import org.example.p04concurrentleaderboard.event.Event;
 import org.example.p04concurrentleaderboard.leaderboard.LeaderBoardApplyDto;
 import org.example.p04concurrentleaderboard.leaderboard.RedisLeaderBoard;
 import org.example.p04concurrentleaderboard.purchase.Purchase;
@@ -20,10 +21,11 @@ public class PurchaseService {
     // TODO Redis와 DB 간 원자성이 없음: Redis에는 반영했는데 DB에 실패하면??
     @Transactional
     public void submit(PurchaseRequest request) {
-        // TODO 이벤트 마감 기간 확인 필요
         Instant now = Instant.now();
-        applyToLeaderBoard(request, now); // Redis
-        savePurchase(request, now);       // Disk
+        if (Event.isActive(now)) {
+            applyToLeaderBoard(request, now); // Redis
+        }
+        savePurchase(request, now);           // Disk
     }
 
     private void applyToLeaderBoard(PurchaseRequest request, Instant now) {
