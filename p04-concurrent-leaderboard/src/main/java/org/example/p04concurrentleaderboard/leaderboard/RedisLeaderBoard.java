@@ -1,5 +1,7 @@
 package org.example.p04concurrentleaderboard.leaderboard;
 
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import org.redisson.api.RMap;
 import org.redisson.api.RScoredSortedSet;
 import org.redisson.api.RedissonClient;
@@ -10,6 +12,7 @@ public class RedisLeaderBoard {
 
     private final RScoredSortedSet<String> ranking;
     private final RMap<Long, String> memberInfo;
+    private final ConcurrentHashMap<Long, ReentrantLock> locks = new ConcurrentHashMap<>();
 
     public RedisLeaderBoard(RedissonClient redisson) {
         this.ranking = redisson.getScoredSortedSet("ranking");
@@ -17,16 +20,22 @@ public class RedisLeaderBoard {
     }
 
     public void apply(LeaderBoardApplyDto dto) {
-        String oldMember = memberInfo.get(dto.userId());
-        Long newScore = dto.diff();
-        if (oldMember != null) {
-            newScore += ranking.getScore(oldMember).longValue() + dto.diff();
+        ReentrantLock lock = locks.computeIfAbsent(dto.userId(), id -> new ReentrantLock());
+        lock.lock();
+        try {
+            String oldMember = memberInfo.get(dto.userId());
+            Long newScore = dto.diff();
+            if (oldMember != null) {
+                newScore += ranking.getScore(oldMember).longValue() + dto.diff();
+            }
+            if (newScore < 0) {
+                throw new NegativeBalanceException(newScore);
+            }
+            ScoreEntry newEntry = new ScoreEntry(dto.userId(), newScore, dto.instant());
+            doAdd(newEntry);
+        } finally {
+            lock.unlock();
         }
-        if (newScore < 0) {
-            throw new NegativeBalanceException(newScore);
-        }
-        ScoreEntry newEntry = new ScoreEntry(dto.userId(), newScore, dto.instant());
-        doAdd(newEntry);
     }
 
     public int getRank(Long userId) {
@@ -40,7 +49,6 @@ public class RedisLeaderBoard {
         return ranking.getScore(member).longValue();
     }
 
-    // TODO 동시성 문제 있음: 동시에 두 스레드가 점수를 갱신하면 한 명의 사용자에 두 개의 member가 등록될 수 있다.
     private void doAdd(ScoreEntry newEntry) {
         String newMember = buildMember(newEntry);
 
