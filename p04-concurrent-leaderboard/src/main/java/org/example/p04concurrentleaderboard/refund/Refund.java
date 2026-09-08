@@ -21,8 +21,11 @@ public class Refund {
     @Column(nullable = false)
     private Instant createdAt;
 
+    /**
+     * 구매 반영 후 랭킹
+     */
     @Column
-    private Long rank;
+    private Integer rank;
 
     protected Refund() {
     }

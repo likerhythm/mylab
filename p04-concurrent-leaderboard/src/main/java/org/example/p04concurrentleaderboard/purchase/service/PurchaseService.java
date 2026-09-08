@@ -33,7 +33,16 @@ public class PurchaseService {
     }
 
     private void savePurchase(PurchaseRequest request, Instant now) {
-        Purchase purchase = new Purchase(request.userId(), request.amount(), now);
+        Purchase purchase = buildPurchase(request, now);
         purchaseRepository.save(purchase);
+    }
+
+    private Purchase buildPurchase(PurchaseRequest request, Instant now) {
+        return Purchase.builder()
+                        .amount(request.amount())
+                        .userId(request.userId())
+                        .createdAt(now)
+                        .rank(redisLeaderBoard.getRank(request.userId()))
+                        .build();
     }
 }

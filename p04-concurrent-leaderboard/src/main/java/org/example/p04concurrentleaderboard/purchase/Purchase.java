@@ -2,13 +2,17 @@ package org.example.p04concurrentleaderboard.purchase;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter
 @Setter
 @Entity
+@Builder
 @Table(name = "purchase")
+@AllArgsConstructor
 public class Purchase {
 
     @Id
@@ -21,6 +25,7 @@ public class Purchase {
     @Column(nullable = false)
     private long amount;
 
+    @Builder.Default
     @Column(nullable = false)
     private boolean refunded = false;
 
@@ -28,18 +33,8 @@ public class Purchase {
     private Instant createdAt;
 
     @Column
-    private Long rank;
+    private Integer rank;
 
     protected Purchase() {
-    }
-
-    public Purchase(Long userId, long amount, Instant createdAt) {
-        this.userId = userId;
-        this.amount = amount;
-        this.createdAt = createdAt;
-    }
-
-    public void markRefunded() {
-        this.refunded = true;
     }
 }
