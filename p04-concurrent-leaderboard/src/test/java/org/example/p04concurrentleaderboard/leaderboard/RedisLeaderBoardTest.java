@@ -3,19 +3,25 @@ package org.example.p04concurrentleaderboard.leaderboard;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import org.mockito.ArgumentCaptor;
 import org.example.p04concurrentleaderboard.leaderboard.dto.LeaderBoardApplyDto;
 import org.example.p04concurrentleaderboard.leaderboard.exception.NegativeBalanceException;
 import org.junit.jupiter.api.BeforeEach;
@@ -95,6 +101,35 @@ class RedisLeaderBoardTest {
         done.await();
 
         assertThat(fakeRanking).hasSize(1);
+    }
+
+    @Test
+    void 등수_100등_밖이어도_정확히_반환됨() {
+        Long userId = 1L;
+        when(memberInfo.get(userId)).thenReturn("someMember");
+        when(ranking.revRank("someMember")).thenReturn(150);
+
+        assertThat(leaderBoard.getRank(userId)).isEqualTo(151);
+    }
+
+    @Test
+    void 동점_시_달성시각_빠른_유저가_더_높은_순위_member를_가짐() {
+        when(memberInfo.get(any())).thenReturn(null);
+
+        Instant t1 = Instant.now().minusSeconds(1);
+        Instant t2 = Instant.now();
+
+        leaderBoard.apply(new LeaderBoardApplyDto(1L, 10_000L, t1));
+        leaderBoard.apply(new LeaderBoardApplyDto(2L, 10_000L, t2));
+
+        ArgumentCaptor<String> memberCaptor = ArgumentCaptor.forClass(String.class);
+        verify(ranking, times(2)).add(anyDouble(), memberCaptor.capture());
+        List<String> members = memberCaptor.getAllValues();
+
+        String member1 = members.get(0);
+        String member2 = members.get(1);
+
+        assertThat(member1).isGreaterThan(member2);
     }
 
     @Test

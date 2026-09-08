@@ -15,7 +15,7 @@ public final class Event {
         if (startAt == null || endAt == null) {
             return false;
         }
-        return !instant.isBefore(startAt) && !instant.isAfter(endAt);
+        return !instant.isBefore(startAt) && instant.isBefore(endAt);
     }
 
     public static void setStartAt(LocalDateTime startTime) {

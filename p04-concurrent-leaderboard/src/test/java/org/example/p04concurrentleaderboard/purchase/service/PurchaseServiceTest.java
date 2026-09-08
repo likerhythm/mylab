@@ -14,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class PurchaseServiceTest {
@@ -23,6 +24,9 @@ class PurchaseServiceTest {
 
     @Mock
     private RedisLeaderBoard redisLeaderBoard;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private PurchaseService purchaseService;
@@ -35,5 +39,15 @@ class PurchaseServiceTest {
         purchaseService.submit(new PurchaseRequest(1L, 10_000L));
 
         verify(redisLeaderBoard, never()).apply(any());
+    }
+
+    @Test
+    void 이벤트_기간_중_구매는_리더보드에_반영됨() {
+        Event.setStartAt(LocalDateTime.now().minusHours(1));
+        Event.setEndAt(LocalDateTime.now().plusHours(1));
+
+        purchaseService.submit(new PurchaseRequest(1L, 10_000L));
+
+        verify(redisLeaderBoard).apply(any());
     }
 }
