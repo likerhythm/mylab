@@ -37,21 +37,21 @@ public class PurchaseService {
 
     // TODO Redis와 DB 간 원자성이 없음: Redis에는 반영했는데 DB에 실패하면??
     @Transactional
-    public void submit(PurchaseRequest request) {
+    public Long submit(PurchaseRequest request) {
         Instant now = Instant.now();
         if (Event.isActive(now)) {
             applyToLeaderBoard(request, now); // Redis
         }
-        savePurchase(request, now);           // Disk
+        return savePurchase(request, now);    // Disk
     }
 
     private void applyToLeaderBoard(PurchaseRequest request, Instant now) {
         redisLeaderBoard.apply(new LeaderBoardApplyDto(request.userId(), request.amount(), now));
     }
 
-    private void savePurchase(PurchaseRequest request, Instant now) {
+    private Long savePurchase(PurchaseRequest request, Instant now) {
         Purchase purchase = buildPurchase(request, now);
-        purchaseRepository.save(purchase);
+        return purchaseRepository.save(purchase).getId();
     }
 
     private Purchase buildPurchase(PurchaseRequest request, Instant now) {

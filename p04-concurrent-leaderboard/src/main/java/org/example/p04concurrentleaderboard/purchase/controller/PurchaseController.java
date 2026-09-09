@@ -28,10 +28,12 @@ public class PurchaseController {
     }
 
     @PostMapping
-    public ResponseEntity<Void> purchase(
+    public ResponseEntity<PurchaseIdResponse> purchase(
             @RequestBody @Validated PurchaseRequest request
     ) {
-        purchaseService.submit(request);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        Long purchaseId = purchaseService.submit(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(new PurchaseIdResponse(purchaseId));
     }
+
+    record PurchaseIdResponse(Long purchaseId) {}
 }
