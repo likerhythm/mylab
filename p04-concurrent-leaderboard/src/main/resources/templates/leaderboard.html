@@ -21,6 +21,162 @@
             gap: 20px;
         }
 
+        /* ── 구매/환불 패널 ── */
+        .action-panel {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+            width: 320px;
+            height: 88vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .action-header {
+            padding: 20px 24px 16px;
+            border-bottom: 1px solid #eee;
+            flex-shrink: 0;
+        }
+
+        .action-header h1 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #111;
+        }
+
+        .action-section {
+            padding: 16px 24px;
+            border-bottom: 1px solid #eee;
+            flex-shrink: 0;
+        }
+
+        .action-section h2 {
+            font-size: 13px;
+            font-weight: 600;
+            color: #888;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .action-form {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .action-form input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .action-form input:focus { border-color: #555; }
+
+        .action-form button {
+            padding: 8px 0;
+            background: #333;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .action-form button:hover { background: #555; }
+
+        .action-msg {
+            margin-top: 6px;
+            font-size: 12px;
+            color: #888;
+            min-height: 16px;
+        }
+
+        .action-msg.error { color: #e05; }
+        .action-msg.success { color: #297a3a; }
+
+        .history-section {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .history-section h2 {
+            font-size: 13px;
+            font-weight: 600;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            padding: 14px 24px 8px;
+            flex-shrink: 0;
+        }
+
+        .history-list {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .history-list::-webkit-scrollbar { width: 4px; }
+        .history-list::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
+
+        .history-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 24px;
+            border-bottom: 1px solid #f5f5f5;
+            gap: 10px;
+            position: relative;
+        }
+
+        .history-item:last-child { border-bottom: none; }
+
+        .history-item.refunded { opacity: 0.4; }
+
+        .history-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .history-amount {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .history-time {
+            font-size: 11px;
+            color: #aaa;
+        }
+
+        .refund-badge {
+            font-size: 11px;
+            color: #aaa;
+            flex-shrink: 0;
+        }
+
+        .refund-btn {
+            display: none;
+            padding: 4px 10px;
+            background: #e05;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .history-item:not(.refunded):hover .refund-btn { display: block; }
+        .history-item:not(.refunded):hover .refund-badge { display: none; }
+
         /* ── 랭킹 보드 ── */
         .board {
             background: #fff;
@@ -236,6 +392,30 @@
 </head>
 <body>
 
+<!-- 구매/환불 패널 -->
+<div class="action-panel">
+    <div class="action-header">
+        <h1>구매 / 환불</h1>
+    </div>
+
+    <div class="action-section">
+        <h2>구매</h2>
+        <div class="action-form">
+            <input type="number" id="purchase-user-id" placeholder="유저 ID" min="1" />
+            <input type="number" id="purchase-amount" placeholder="금액 (원)" min="1" />
+            <button onclick="submitPurchase()">구매</button>
+        </div>
+        <div class="action-msg" id="purchase-msg"></div>
+    </div>
+
+    <div class="history-section">
+        <h2>구매 내역</h2>
+        <div class="history-list" id="history-list">
+            <div class="empty" style="padding: 20px 0;">유저 ID로 구매하면 내역이 표시됩니다.</div>
+        </div>
+    </div>
+</div>
+
 <!-- 랭킹 보드 -->
 <div class="board">
     <div class="board-header">
@@ -375,6 +555,107 @@
 
     document.getElementById('user-id-input').addEventListener('keydown', e => {
         if (e.key === 'Enter') fetchMyRank();
+    });
+
+    /* ── 구매/환불 ── */
+    let currentPurchaseUserId = null;
+
+    async function submitPurchase() {
+        const userId = document.getElementById('purchase-user-id').value.trim();
+        const amount = document.getElementById('purchase-amount').value.trim();
+        const msgEl = document.getElementById('purchase-msg');
+
+        if (!userId || !amount) {
+            msgEl.className = 'action-msg error';
+            msgEl.textContent = '유저 ID와 금액을 입력해주세요.';
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/purchase', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: Number(userId), amount: Number(amount) })
+            });
+            if (!res.ok) throw new Error();
+
+            msgEl.className = 'action-msg success';
+            msgEl.textContent = `${Number(amount).toLocaleString('ko-KR')}원 구매 완료`;
+            document.getElementById('purchase-amount').value = '';
+
+            currentPurchaseUserId = Number(userId);
+            await fetchHistory();
+
+            // 요구사항 1.1: 구매 시 랭킹 보드 즉시 갱신 + 타이머 리셋
+            fetchAndRender();
+            resetTimer();
+        } catch (e) {
+            msgEl.className = 'action-msg error';
+            msgEl.textContent = '구매에 실패했습니다.';
+        }
+    }
+
+    async function fetchHistory() {
+        if (!currentPurchaseUserId) return;
+        try {
+            const res = await fetch(`/api/purchase?userId=${currentPurchaseUserId}`);
+            if (!res.ok) throw new Error();
+            const data = await res.json();
+            renderHistory(data);
+        } catch (e) {
+            console.error('구매 내역 조회 실패:', e);
+        }
+    }
+
+    function renderHistory(data) {
+        const listEl = document.getElementById('history-list');
+        if (!data || data.length === 0) {
+            listEl.innerHTML = '<div class="empty" style="padding:20px 0;">구매 내역이 없습니다.</div>';
+            return;
+        }
+        // 최신순 정렬
+        const sorted = [...data].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        listEl.innerHTML = sorted.map(item => `
+            <div class="history-item ${item.refunded ? 'refunded' : ''}">
+                <div class="history-info">
+                    <span class="history-amount">${Number(item.amount).toLocaleString('ko-KR')}원</span>
+                    <span class="history-time">${formatTime(item.createdAt)}</span>
+                </div>
+                ${item.refunded
+                    ? '<span class="refund-badge">환불됨</span>'
+                    : `<span class="refund-badge">환불</span>
+                       <button class="refund-btn" onclick="submitRefund(${item.id}, ${item.amount})">환불</button>`
+                }
+            </div>`
+        ).join('');
+    }
+
+    async function submitRefund(purchaseId, amount) {
+        if (!currentPurchaseUserId) return;
+        try {
+            const res = await fetch('/api/refund', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: currentPurchaseUserId,
+                    amount: amount,
+                    purchaseId: purchaseId
+                })
+            });
+            if (!res.ok) throw new Error();
+
+            await fetchHistory();
+            fetchAndRender();
+            resetTimer();
+        } catch (e) {
+            const msgEl = document.getElementById('purchase-msg');
+            msgEl.className = 'action-msg error';
+            msgEl.textContent = '환불에 실패했습니다.';
+        }
+    }
+
+    document.getElementById('purchase-amount').addEventListener('keydown', e => {
+        if (e.key === 'Enter') submitPurchase();
     });
 
     /* ── 이벤트 결과 ── */
