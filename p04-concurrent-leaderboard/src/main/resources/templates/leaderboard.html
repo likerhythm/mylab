@@ -688,12 +688,6 @@
 
             labelEl.textContent = `유저 ${userId} — 총 ${data.length}건`;
 
-            // 개별 구매/환불 금액 계산 (연속된 score 차이)
-            const diffs = data.map((entry, i) => {
-                const prev = i === 0 ? 0 : data[i - 1].score;
-                return entry.score - prev;
-            });
-
             const labels = data.map(e => formatTime(e.updatedAt));
             const scores = data.map(e => e.score);
 
@@ -710,7 +704,7 @@
                         data: scores,
                         borderColor: '#333',
                         backgroundColor: 'rgba(51,51,51,0.06)',
-                        pointBackgroundColor: diffs.map(d => d >= 0 ? '#333' : '#e05'),
+                        pointBackgroundColor: data.map(e => e.diff >= 0 ? '#333' : '#e05'),
                         pointRadius: 5,
                         pointHoverRadius: 7,
                         tension: 0.3,
@@ -725,12 +719,13 @@
                         tooltip: {
                             callbacks: {
                                 title: (items) => `시각: ${items[0].label}`,
-                                afterLabel: (item) => {
-                                    const diff = diffs[item.dataIndex];
-                                    const sign = diff >= 0 ? '+' : '';
-                                    return `${sign}${Number(diff).toLocaleString('ko-KR')}원`;
-                                },
                                 label: (item) => `누적: ${Number(item.raw).toLocaleString('ko-KR')}원`,
+                                afterLabel: (item) => {
+                                    const entry = data[item.dataIndex];
+                                    const sign = entry.diff >= 0 ? '+' : '';
+                                    const rankStr = entry.rank != null ? `${entry.rank}위` : '-';
+                                    return [`${sign}${Number(entry.diff).toLocaleString('ko-KR')}원`, `등수: ${rankStr}`];
+                                },
                             }
                         }
                     },

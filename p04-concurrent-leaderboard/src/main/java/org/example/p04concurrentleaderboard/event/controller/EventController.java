@@ -4,8 +4,8 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.example.p04concurrentleaderboard.event.request.ConfigEventRequest;
 import org.example.p04concurrentleaderboard.event.Event;
+import org.example.p04concurrentleaderboard.event.response.EventResultEntry;
 import org.example.p04concurrentleaderboard.event.service.EventService;
-import org.example.p04concurrentleaderboard.leaderboard.dto.LeaderBoardEntry;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -33,7 +33,7 @@ public class EventController {
     }
 
     @GetMapping("/result")
-    public ResponseEntity<List<LeaderBoardEntry>> result(
+    public ResponseEntity<List<EventResultEntry>> result(
             @RequestParam Long userId
     ) {
         return ResponseEntity.ok().body(eventService.result(userId));

@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.example.p04concurrentleaderboard.event.Event;
-import org.example.p04concurrentleaderboard.leaderboard.dto.LeaderBoardEntry;
+import org.example.p04concurrentleaderboard.event.response.EventResultEntry;
 import org.example.p04concurrentleaderboard.purchase.entity.Purchase;
 import org.example.p04concurrentleaderboard.purchase.repository.PurchaseRepository;
 import org.example.p04concurrentleaderboard.refund.Refund;
@@ -21,7 +21,7 @@ public class EventService {
     private final PurchaseRepository purchaseRepository;
     private final RefundRepository refundRepository;
 
-    public List<LeaderBoardEntry> result(Long userId) {
+    public List<EventResultEntry> result(Long userId) {
         List<Purchase> purchases = purchaseRepository.findAllByUserId(userId).stream()
                 .filter(Purchase::inEvent)
                 .toList();
@@ -32,30 +32,28 @@ public class EventService {
     }
 
     private List<Long> getPurchaseIds(List<Purchase> purchases) {
-        List<Long> purchaseIds = purchases.stream()
+        return purchases.stream()
                 .map(Purchase::getId)
                 .toList();
-        return purchaseIds;
     }
 
     private List<Node> convertToNode(Long userId, List<Purchase> purchases, List<Refund> refunds) {
-        List<Node> nodes = Stream.concat(
+        return Stream.concat(
                         purchases.stream()
-                                .map(p -> new Node(userId, p.getAmount(), p.getCreatedAt())),
+                                .map(p -> new Node(userId, p.getAmount(), p.getRank(), p.getCreatedAt())),
                         refunds.stream()
-                                .map(r -> new Node(userId, -r.getAmount(), r.getCreatedAt()))
+                                .map(r -> new Node(userId, -r.getAmount(), r.getRank(), r.getCreatedAt()))
                 )
                 .sorted(Comparator.comparing(Node::createdAt))
                 .toList();
-        return nodes;
     }
 
-    private List<LeaderBoardEntry> convertToEntry(List<Node> nodes) {
-        List<LeaderBoardEntry> entries = new ArrayList<>(nodes.size());
+    private List<EventResultEntry> convertToEntry(List<Node> nodes) {
+        List<EventResultEntry> entries = new ArrayList<>(nodes.size());
         long cumulativeScore = 0;
         for (Node node : nodes) {
             cumulativeScore += node.amount();
-            entries.add(new LeaderBoardEntry(node.userId(), cumulativeScore, node.createdAt()));
+            entries.add(new EventResultEntry(node.userId(), cumulativeScore, node.amount(), node.rank(), node.createdAt()));
         }
         return entries;
     }
@@ -63,6 +61,7 @@ public class EventService {
     private record Node(
             Long userId,
             Long amount,
+            Integer rank,
             Instant createdAt
     ) {
     }
