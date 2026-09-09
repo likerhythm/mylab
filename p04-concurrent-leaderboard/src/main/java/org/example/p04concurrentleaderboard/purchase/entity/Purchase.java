@@ -25,7 +25,7 @@ public class Purchase {
     private Long userId;
 
     @Column(nullable = false)
-    private long amount;
+    private Long amount;
 
     @Column(nullable = false)
     private Instant createdAt;

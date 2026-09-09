@@ -1,13 +1,18 @@
 package org.example.p04concurrentleaderboard.leaderboard;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import org.example.p04concurrentleaderboard.leaderboard.dto.LeaderBoardApplyDto;
-import org.example.p04concurrentleaderboard.leaderboard.dto.ScoreEntry;
+import org.example.p04concurrentleaderboard.leaderboard.dto.LeaderBoardEntry;
 import org.example.p04concurrentleaderboard.leaderboard.exception.NegativeBalanceException;
 import org.redisson.api.RMap;
 import org.redisson.api.RScoredSortedSet;
 import org.redisson.api.RedissonClient;
+import org.redisson.client.protocol.ScoredEntry;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -29,12 +34,12 @@ public class RedisLeaderBoard {
             String oldMember = memberInfo.get(dto.userId());
             Long newScore = dto.diff();
             if (oldMember != null) {
-                newScore += ranking.getScore(oldMember).longValue() + dto.diff();
+                newScore += ranking.getScore(oldMember).longValue();
             }
             if (newScore < 0) {
                 throw new NegativeBalanceException(newScore);
             }
-            ScoreEntry newEntry = new ScoreEntry(dto.userId(), newScore, dto.instant());
+            LeaderBoardEntry newEntry = new LeaderBoardEntry(dto.userId(), newScore, dto.instant());
             doAdd(newEntry);
         } finally {
             lock.unlock();
@@ -47,12 +52,16 @@ public class RedisLeaderBoard {
         return rank == null ? -1 : rank + 1;
     }
 
-    public long getScore(Long userId) {
-        String member = memberInfo.get(userId);
-        return ranking.getScore(member).longValue();
+    public List<LeaderBoardEntry> getTop100() {
+        Collection<ScoredEntry<String>> entries = ranking.entryRangeReversed(0, 99);
+        List<LeaderBoardEntry> result = new ArrayList<>(entries.size());
+        for (ScoredEntry<String> entry : entries) {
+            result.add(LeaderBoardEntry.parse(entry));
+        }
+        return result;
     }
 
-    private void doAdd(ScoreEntry newEntry) {
+    private void doAdd(LeaderBoardEntry newEntry) {
         String newMember = buildMember(newEntry);
 
         String oldMember = memberInfo.get(newEntry.userId());
@@ -64,12 +73,12 @@ public class RedisLeaderBoard {
         memberInfo.put(newEntry.userId(), newMember);
     }
 
-    private String buildMember(ScoreEntry entry) {
+    private String buildMember(LeaderBoardEntry entry) {
         long reversedTime = getReversedTime(entry);
         return String.format("%019d:%d", reversedTime, entry.userId());
     }
 
-    private long getReversedTime(ScoreEntry entry) {
+    private long getReversedTime(LeaderBoardEntry entry) {
         return Long.MAX_VALUE - entry.updatedAt().toEpochMilli();
     }
 
