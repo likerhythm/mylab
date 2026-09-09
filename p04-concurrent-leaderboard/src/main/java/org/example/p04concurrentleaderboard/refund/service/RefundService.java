@@ -34,7 +34,7 @@ public class RefundService {
     }
 
     private void applyToLeaderBoard(RefundRequest request, Instant now) {
-        redisLeaderBoard.apply(new LeaderBoardApplyDto(request.userId(), request.amount(), now));
+        redisLeaderBoard.apply(new LeaderBoardApplyDto(request.userId(), -request.amount(), now));
     }
 
     private void saveRefund(RefundRequest request, Instant now) {
