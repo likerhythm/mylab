@@ -61,6 +61,12 @@ public class RedisLeaderBoard {
         return result;
     }
 
+    public void clear() {
+        ranking.clear();
+        memberInfo.clear();
+        locks.clear();
+    }
+
     private void doAdd(LeaderBoardEntry newEntry) {
         String newMember = buildMember(newEntry);
 
