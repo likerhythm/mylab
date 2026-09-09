@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>이벤트 랭킹 보드</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -17,17 +18,20 @@
             justify-content: center;
             align-items: center;
             height: 100vh;
+            gap: 20px;
         }
 
+        /* ── 랭킹 보드 ── */
         .board {
             background: #fff;
             border-radius: 12px;
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-            width: 480px;
+            width: 420px;
             height: 88vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            flex-shrink: 0;
         }
 
         .board-header {
@@ -49,12 +53,7 @@
             margin-top: 6px;
         }
 
-        .board-meta span {
-            font-size: 12px;
-            color: #888;
-        }
-
-        #refresh-timer {
+        .board-meta span, #refresh-timer {
             font-size: 12px;
             color: #888;
         }
@@ -64,14 +63,8 @@
             flex: 1;
         }
 
-        .entry-list::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        .entry-list::-webkit-scrollbar-thumb {
-            background: #ddd;
-            border-radius: 2px;
-        }
+        .entry-list::-webkit-scrollbar { width: 4px; }
+        .entry-list::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
 
         .entry {
             display: flex;
@@ -81,9 +74,7 @@
             gap: 14px;
         }
 
-        .entry:last-child {
-            border-bottom: none;
-        }
+        .entry:last-child { border-bottom: none; }
 
         .rank {
             width: 28px;
@@ -98,18 +89,16 @@
         .rank.top2 { color: #9b9b9b; font-size: 15px; }
         .rank.top3 { color: #c47d2e; font-size: 15px; }
 
-        .user-id {
+        .entry-user {
             flex: 1;
             font-size: 14px;
             color: #333;
         }
 
-        .score {
+        .entry-score {
             font-size: 14px;
             font-weight: 600;
             color: #333;
-            text-align: right;
-            flex-shrink: 0;
         }
 
         .empty {
@@ -139,9 +128,7 @@
             outline: none;
         }
 
-        .my-rank-form input:focus {
-            border-color: #555;
-        }
+        .my-rank-form input:focus { border-color: #555; }
 
         .my-rank-form button {
             padding: 8px 16px;
@@ -153,9 +140,7 @@
             cursor: pointer;
         }
 
-        .my-rank-form button:hover {
-            background: #555;
-        }
+        .my-rank-form button:hover { background: #555; }
 
         .my-rank-result {
             margin-top: 10px;
@@ -164,12 +149,94 @@
             min-height: 18px;
         }
 
-        .my-rank-result.error {
-            color: #e05;
+        .my-rank-result.error { color: #e05; }
+
+        /* ── 이벤트 결과 패널 ── */
+        .result-panel {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+            width: 480px;
+            height: 88vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .result-header {
+            padding: 20px 24px 16px;
+            border-bottom: 1px solid #eee;
+            flex-shrink: 0;
+        }
+
+        .result-header h1 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #111;
+        }
+
+        .result-form {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .result-form input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .result-form input:focus { border-color: #555; }
+
+        .result-form button {
+            padding: 8px 16px;
+            background: #333;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .result-form button:hover { background: #555; }
+
+        .result-user-label {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #888;
+            min-height: 18px;
+        }
+
+        .result-user-label.error { color: #e05; }
+
+        .result-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+        }
+
+        .result-placeholder {
+            color: #bbb;
+            font-size: 14px;
+        }
+
+        .chart-wrap {
+            width: 100%;
+            height: 100%;
         }
     </style>
 </head>
 <body>
+
+<!-- 랭킹 보드 -->
 <div class="board">
     <div class="board-header">
         <h1>랭킹 보드 TOP 100</h1>
@@ -184,13 +251,29 @@
     <div class="my-rank-section">
         <div class="my-rank-form">
             <input type="number" id="user-id-input" placeholder="유저 ID 입력" min="1" />
-            <button onclick="fetchMyRank()">내 순위 조회</button>
+            <button onclick="fetchMyRank()">순위 조회</button>
         </div>
         <div class="my-rank-result" id="my-rank-result"></div>
     </div>
 </div>
 
+<!-- 이벤트 결과 패널 -->
+<div class="result-panel">
+    <div class="result-header">
+        <h1>이벤트 구매 이력</h1>
+        <div class="result-form">
+            <input type="number" id="result-user-input" placeholder="유저 ID 입력" min="1" />
+            <button onclick="fetchResult()">조회</button>
+        </div>
+        <div class="result-user-label" id="result-user-label"></div>
+    </div>
+    <div class="result-body" id="result-body">
+        <span class="result-placeholder">유저 ID를 입력하면 구매액 변화를 확인할 수 있습니다.</span>
+    </div>
+</div>
+
 <script>
+    /* ── 공통 유틸 ── */
     const POLL_INTERVAL = 10000;
     let countdown = POLL_INTERVAL / 1000;
     let timerInterval = null;
@@ -213,15 +296,17 @@
         return Number(score).toLocaleString('ko-KR') + '원';
     }
 
-    function formatTime(isoString) {
-        const d = new Date(isoString);
-        return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    function formatTime(iso) {
+        return new Date(iso).toLocaleTimeString('ko-KR', {
+            hour: '2-digit', minute: '2-digit', second: '2-digit'
+        });
     }
 
+    /* ── 랭킹 보드 ── */
     async function fetchAndRender() {
         try {
             const res = await fetch('/api/leaderboard/top100');
-            if (!res.ok) throw new Error('fetch failed');
+            if (!res.ok) throw new Error();
             const data = await res.json();
 
             const list = document.getElementById('entry-list');
@@ -230,16 +315,17 @@
             } else {
                 list.innerHTML = data.map((entry, i) => {
                     const rank = i + 1;
-                    return `
-                        <div class="entry">
-                            <span class="${rankClass(rank)}">${rankLabel(rank)}</span>
-                            <span class="user-id">유저 ${entry.userId}</span>
-                            <span class="score">${formatScore(entry.score)}</span>
-                        </div>`;
+                    return `<div class="entry">
+                        <span class="${rankClass(rank)}">${rankLabel(rank)}</span>
+                        <span class="entry-user">유저 ${entry.userId}</span>
+                        <span class="entry-score">${formatScore(entry.score)}</span>
+                    </div>`;
                 }).join('');
             }
 
-            const now = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const now = new Date().toLocaleTimeString('ko-KR', {
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
+            });
             document.getElementById('updated-at').textContent = `최근 갱신: ${now}`;
         } catch (e) {
             console.error('랭킹 조회 실패:', e);
@@ -260,9 +346,8 @@
     }
 
     async function fetchMyRank() {
-        const input = document.getElementById('user-id-input');
+        const userId = document.getElementById('user-id-input').value.trim();
         const resultEl = document.getElementById('my-rank-result');
-        const userId = input.value.trim();
 
         if (!userId) {
             resultEl.className = 'my-rank-result error';
@@ -276,13 +361,10 @@
             const data = await res.json();
 
             resultEl.className = 'my-rank-result';
-            if (data.rank === -1) {
-                resultEl.textContent = `유저 ${data.userId} — 아직 랭킹에 없습니다.`;
-            } else {
-                resultEl.textContent = `유저 ${data.userId} — 현재 ${data.rank}위`;
-            }
+            resultEl.textContent = data.rank === -1
+                ? `유저 ${data.userId} — 아직 랭킹에 없습니다.`
+                : `유저 ${data.userId} — 현재 ${data.rank}위`;
 
-            // 요구사항 1.2: 내 순위 조회 시 랭킹 보드도 함께 갱신
             fetchAndRender();
             resetTimer();
         } catch (e) {
@@ -291,10 +373,112 @@
         }
     }
 
-    document.getElementById('user-id-input').addEventListener('keydown', (e) => {
+    document.getElementById('user-id-input').addEventListener('keydown', e => {
         if (e.key === 'Enter') fetchMyRank();
     });
 
+    /* ── 이벤트 결과 ── */
+    let resultChart = null;
+
+    async function fetchResult() {
+        const userId = document.getElementById('result-user-input').value.trim();
+        const labelEl = document.getElementById('result-user-label');
+        const bodyEl = document.getElementById('result-body');
+
+        if (!userId) {
+            labelEl.className = 'result-user-label error';
+            labelEl.textContent = '유저 ID를 입력해주세요.';
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/event/result?userId=${userId}`);
+            if (!res.ok) throw new Error();
+            const data = await res.json();
+
+            labelEl.className = 'result-user-label';
+
+            if (!data || data.length === 0) {
+                labelEl.textContent = `유저 ${userId} — 이벤트 기간 내 구매 이력이 없습니다.`;
+                bodyEl.innerHTML = '<span class="result-placeholder">구매 이력이 없습니다.</span>';
+                if (resultChart) { resultChart.destroy(); resultChart = null; }
+                return;
+            }
+
+            labelEl.textContent = `유저 ${userId} — 총 ${data.length}건`;
+
+            // 개별 구매/환불 금액 계산 (연속된 score 차이)
+            const diffs = data.map((entry, i) => {
+                const prev = i === 0 ? 0 : data[i - 1].score;
+                return entry.score - prev;
+            });
+
+            const labels = data.map(e => formatTime(e.updatedAt));
+            const scores = data.map(e => e.score);
+
+            bodyEl.innerHTML = '<div class="chart-wrap"><canvas id="result-chart"></canvas></div>';
+
+            if (resultChart) resultChart.destroy();
+
+            resultChart = new Chart(document.getElementById('result-chart'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: '누적 구매액',
+                        data: scores,
+                        borderColor: '#333',
+                        backgroundColor: 'rgba(51,51,51,0.06)',
+                        pointBackgroundColor: diffs.map(d => d >= 0 ? '#333' : '#e05'),
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        tension: 0.3,
+                        fill: true,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: (items) => `시각: ${items[0].label}`,
+                                afterLabel: (item) => {
+                                    const diff = diffs[item.dataIndex];
+                                    const sign = diff >= 0 ? '+' : '';
+                                    return `${sign}${Number(diff).toLocaleString('ko-KR')}원`;
+                                },
+                                label: (item) => `누적: ${Number(item.raw).toLocaleString('ko-KR')}원`,
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { font: { size: 11 }, maxRotation: 40, minRotation: 40 },
+                            grid: { color: '#f0f0f0' }
+                        },
+                        y: {
+                            ticks: {
+                                font: { size: 11 },
+                                callback: v => Number(v).toLocaleString('ko-KR') + '원'
+                            },
+                            grid: { color: '#f0f0f0' }
+                        }
+                    }
+                }
+            });
+        } catch (e) {
+            labelEl.className = 'result-user-label error';
+            labelEl.textContent = '조회에 실패했습니다.';
+        }
+    }
+
+    document.getElementById('result-user-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') fetchResult();
+    });
+
+    /* ── 초기화 ── */
     fetchAndRender();
     resetTimer();
 </script>
