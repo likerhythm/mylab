@@ -56,7 +56,7 @@ class RefundServiceTest {
 
         when(purchaseRepository.findById(purchaseId)).thenReturn(Optional.of(purchase));
 
-        refundService.submit(new RefundRequest(userId, purchaseId));
+        refundService.submit(new RefundRequest(userId, purchase.getAmount(), purchaseId));
 
         verify(redisLeaderBoard, never()).apply(any());
     }
@@ -80,7 +80,7 @@ class RefundServiceTest {
 
         when(purchaseRepository.findById(purchaseId)).thenReturn(Optional.of(purchase));
 
-        refundService.submit(new RefundRequest(userId, purchaseId));
+        refundService.submit(new RefundRequest(userId, purchase.getAmount(), purchaseId));
 
         verify(redisLeaderBoard, never()).apply(any());
     }
@@ -104,7 +104,7 @@ class RefundServiceTest {
 
         when(purchaseRepository.findById(purchaseId)).thenReturn(Optional.of(purchase));
 
-        refundService.submit(new RefundRequest(userId, purchaseId));
+        refundService.submit(new RefundRequest(userId, purchase.getAmount(), purchaseId));
 
         verify(redisLeaderBoard).apply(any());
     }
@@ -125,7 +125,7 @@ class RefundServiceTest {
 
         when(purchaseRepository.findById(purchaseId)).thenReturn(Optional.of(purchase));
 
-        assertThatThrownBy(() -> refundService.submit(new RefundRequest(userId, purchaseId)))
+        assertThatThrownBy(() -> refundService.submit(new RefundRequest(userId, purchase.getAmount(), purchaseId)))
                 .isInstanceOf(RuntimeException.class);
     }
 }

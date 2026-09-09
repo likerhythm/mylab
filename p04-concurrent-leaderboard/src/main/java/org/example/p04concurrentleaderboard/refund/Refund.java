@@ -19,6 +19,12 @@ public class Refund {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
+    private Long userId;
+
+    @Column(nullable = false)
+    private Long amount;
+
     @Column(nullable = false, unique = true)
     private Long purchaseId;
 

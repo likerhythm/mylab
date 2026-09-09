@@ -28,13 +28,13 @@ public class RefundService {
         Purchase purchase = getPurchase(request.userId(), request.purchaseId());
         Instant now = Instant.now();
         if (Event.isActive(now) && purchase.inEvent()) {
-            applyToLeaderBoard(request, purchase, now); // Redis
+            applyToLeaderBoard(request, now); // Redis
         }
         saveRefund(request, now);           // Disk
     }
 
-    private void applyToLeaderBoard(RefundRequest request, Purchase purchase, Instant now) {
-        redisLeaderBoard.apply(new LeaderBoardApplyDto(request.userId(), -purchase.getAmount(), now));
+    private void applyToLeaderBoard(RefundRequest request, Instant now) {
+        redisLeaderBoard.apply(new LeaderBoardApplyDto(request.userId(), request.amount(), now));
     }
 
     private void saveRefund(RefundRequest request, Instant now) {
@@ -44,6 +44,8 @@ public class RefundService {
 
     private Refund buildRefund(RefundRequest request, Instant now) {
         return Refund.builder()
+                .amount(request.amount())
+                .userId(request.userId())
                 .purchaseId(request.purchaseId())
                 .createdAt(now)
                 .rank(redisLeaderBoard.getRank(request.userId()))
