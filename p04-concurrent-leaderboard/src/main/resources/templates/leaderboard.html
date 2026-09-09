@@ -118,6 +118,21 @@
         .event-status .dot-active { background: #297a3a; }
         .event-status .dot-inactive { background: #ccc; }
 
+        .reset-btn {
+            padding: 9px 0;
+            background: none;
+            color: #e05;
+            border: 1px solid #e05;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+
+        .reset-btn:hover {
+            background: #fff0f0;
+        }
+
         /* ── 구매/환불 패널 ── */
         .action-panel {
             background: #fff;
@@ -520,6 +535,8 @@
         <button class="event-submit" onclick="configEvent()">이벤트 설정</button>
         <div class="event-msg" id="event-msg"></div>
         <div class="event-status" id="event-status"></div>
+        <button class="reset-btn" onclick="resetAll()">전체 초기화</button>
+        <div class="event-msg" id="reset-msg"></div>
     </div>
 </div>
 
@@ -663,6 +680,22 @@
         } catch (e) {
             msgEl.className = 'event-msg error';
             msgEl.textContent = '설정에 실패했습니다.';
+        }
+    }
+
+    async function resetAll() {
+        if (!confirm('Redis와 DB 데이터를 모두 초기화합니다. 계속할까요?')) return;
+        const msgEl = document.getElementById('reset-msg');
+        try {
+            const res = await fetch('/api/admin/reset', { method: 'POST' });
+            if (!res.ok) throw new Error();
+            msgEl.className = 'event-msg success';
+            msgEl.textContent = '초기화 완료';
+            fetchAndRender();
+            resetTimer();
+        } catch (e) {
+            msgEl.className = 'event-msg error';
+            msgEl.textContent = '초기화에 실패했습니다.';
         }
     }
 
