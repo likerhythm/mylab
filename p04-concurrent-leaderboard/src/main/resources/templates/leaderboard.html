@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>이벤트 랭킹 보드</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .board {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+            width: 480px;
+            height: 88vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .board-header {
+            padding: 20px 24px 16px;
+            border-bottom: 1px solid #eee;
+            flex-shrink: 0;
+        }
+
+        .board-header h1 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #111;
+        }
+
+        .board-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 6px;
+        }
+
+        .board-meta span {
+            font-size: 12px;
+            color: #888;
+        }
+
+        #refresh-timer {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .entry-list {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .entry-list::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .entry-list::-webkit-scrollbar-thumb {
+            background: #ddd;
+            border-radius: 2px;
+        }
+
+        .entry {
+            display: flex;
+            align-items: center;
+            padding: 12px 24px;
+            border-bottom: 1px solid #f5f5f5;
+            gap: 14px;
+        }
+
+        .entry:last-child {
+            border-bottom: none;
+        }
+
+        .rank {
+            width: 28px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+            flex-shrink: 0;
+        }
+
+        .rank.top1 { color: #f5a623; font-size: 16px; }
+        .rank.top2 { color: #9b9b9b; font-size: 15px; }
+        .rank.top3 { color: #c47d2e; font-size: 15px; }
+
+        .user-id {
+            flex: 1;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .score {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        .empty {
+            text-align: center;
+            color: #aaa;
+            font-size: 14px;
+            padding: 40px 0;
+        }
+
+        .my-rank-section {
+            padding: 14px 24px;
+            border-top: 1px solid #eee;
+            flex-shrink: 0;
+        }
+
+        .my-rank-form {
+            display: flex;
+            gap: 8px;
+        }
+
+        .my-rank-form input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .my-rank-form input:focus {
+            border-color: #555;
+        }
+
+        .my-rank-form button {
+            padding: 8px 16px;
+            background: #333;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .my-rank-form button:hover {
+            background: #555;
+        }
+
+        .my-rank-result {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #444;
+            min-height: 18px;
+        }
+
+        .my-rank-result.error {
+            color: #e05;
+        }
+    </style>
+</head>
+<body>
+<div class="board">
+    <div class="board-header">
+        <h1>랭킹 보드 TOP 100</h1>
+        <div class="board-meta">
+            <span id="updated-at">-</span>
+            <span id="refresh-timer">10초 후 갱신</span>
+        </div>
+    </div>
+    <div class="entry-list" id="entry-list">
+        <div class="empty">불러오는 중...</div>
+    </div>
+    <div class="my-rank-section">
+        <div class="my-rank-form">
+            <input type="number" id="user-id-input" placeholder="유저 ID 입력" min="1" />
+            <button onclick="fetchMyRank()">내 순위 조회</button>
+        </div>
+        <div class="my-rank-result" id="my-rank-result"></div>
+    </div>
+</div>
+
+<script>
+    const POLL_INTERVAL = 10000;
+    let countdown = POLL_INTERVAL / 1000;
+    let timerInterval = null;
+
+    function rankLabel(rank) {
+        if (rank === 1) return '🥇';
+        if (rank === 2) return '🥈';
+        if (rank === 3) return '🥉';
+        return rank;
+    }
+
+    function rankClass(rank) {
+        if (rank === 1) return 'rank top1';
+        if (rank === 2) return 'rank top2';
+        if (rank === 3) return 'rank top3';
+        return 'rank';
+    }
+
+    function formatScore(score) {
+        return Number(score).toLocaleString('ko-KR') + '원';
+    }
+
+    function formatTime(isoString) {
+        const d = new Date(isoString);
+        return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    async function fetchAndRender() {
+        try {
+            const res = await fetch('/api/leaderboard/top100');
+            if (!res.ok) throw new Error('fetch failed');
+            const data = await res.json();
+
+            const list = document.getElementById('entry-list');
+            if (!data || data.length === 0) {
+                list.innerHTML = '<div class="empty">아직 참여자가 없습니다.</div>';
+            } else {
+                list.innerHTML = data.map((entry, i) => {
+                    const rank = i + 1;
+                    return `
+                        <div class="entry">
+                            <span class="${rankClass(rank)}">${rankLabel(rank)}</span>
+                            <span class="user-id">유저 ${entry.userId}</span>
+                            <span class="score">${formatScore(entry.score)}</span>
+                        </div>`;
+                }).join('');
+            }
+
+            const now = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            document.getElementById('updated-at').textContent = `최근 갱신: ${now}`;
+        } catch (e) {
+            console.error('랭킹 조회 실패:', e);
+        }
+    }
+
+    function resetTimer() {
+        clearInterval(timerInterval);
+        countdown = POLL_INTERVAL / 1000;
+        timerInterval = setInterval(() => {
+            countdown--;
+            document.getElementById('refresh-timer').textContent = `${countdown}초 후 갱신`;
+            if (countdown <= 0) {
+                countdown = POLL_INTERVAL / 1000;
+                fetchAndRender();
+            }
+        }, 1000);
+    }
+
+    async function fetchMyRank() {
+        const input = document.getElementById('user-id-input');
+        const resultEl = document.getElementById('my-rank-result');
+        const userId = input.value.trim();
+
+        if (!userId) {
+            resultEl.className = 'my-rank-result error';
+            resultEl.textContent = '유저 ID를 입력해주세요.';
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/leaderboard/my-rank?userId=${userId}`);
+            if (!res.ok) throw new Error();
+            const data = await res.json();
+
+            resultEl.className = 'my-rank-result';
+            if (data.rank === -1) {
+                resultEl.textContent = `유저 ${data.userId} — 아직 랭킹에 없습니다.`;
+            } else {
+                resultEl.textContent = `유저 ${data.userId} — 현재 ${data.rank}위`;
+            }
+
+            // 요구사항 1.2: 내 순위 조회 시 랭킹 보드도 함께 갱신
+            fetchAndRender();
+            resetTimer();
+        } catch (e) {
+            resultEl.className = 'my-rank-result error';
+            resultEl.textContent = '조회에 실패했습니다.';
+        }
+    }
+
+    document.getElementById('user-id-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') fetchMyRank();
+    });
+
+    fetchAndRender();
+    resetTimer();
+</script>
+</body>
+</html>
