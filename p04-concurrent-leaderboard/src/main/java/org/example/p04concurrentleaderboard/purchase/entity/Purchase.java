@@ -30,7 +30,7 @@ public class Purchase {
     @Column(nullable = false)
     private Instant createdAt;
 
-    @Column
+    @Column(name = "`rank`")
     private Integer rank;
 
     protected Purchase() {

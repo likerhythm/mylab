@@ -34,7 +34,7 @@ public class Refund {
     /**
      * 구매 반영 후 랭킹
      */
-    @Column
+    @Column(name = "`rank`")
     private Integer rank;
 
     protected Refund() {
