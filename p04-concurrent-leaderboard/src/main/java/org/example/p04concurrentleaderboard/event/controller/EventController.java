@@ -29,7 +29,7 @@ public class EventController {
     public ResponseEntity<Void> configEvent(
             @RequestBody @Validated ConfigEventRequest request
     ) {
-        redisLeaderBoard.clear();
+        eventService.clear();
         Event.setStartAt(request.startAt());
         Event.setEndAt(request.endAt());
         return ResponseEntity.status(HttpStatus.CREATED).build();

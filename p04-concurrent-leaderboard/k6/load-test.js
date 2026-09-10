@@ -4,17 +4,19 @@ import exec from 'k6/execution';
 const BASE_URL = 'http://localhost:8080';
 const HEADERS = { 'Content-Type': 'application/json' };
 
-const DURATION_SECONDS = 180;
+const DURATION_SECONDS = 60;
 const WARMUP_SECONDS = 5;
 const MIN_AMOUNT = 10000;
 const MAX_AMOUNT = 100000;
 const AMOUNT_STEP = 1000;
+const USERS = 3000;
+const RATE = 1000;
 
 export const options = {
     scenarios: {
         load: {
             executor: 'constant-arrival-rate',
-            rate: 100,
+            rate: RATE,
             timeUnit: '1s',
             duration: `${DURATION_SECONDS}s`,
             preAllocatedVUs: 50,
@@ -50,7 +52,7 @@ export function setup() {
 }
 
 export default function () {
-    const userId = Math.floor(Math.random() * 10) + 1; // 1~10
+    const userId = Math.floor(Math.random() * USERS) + 1;
     const elapsedSeconds = exec.scenario.progress * DURATION_SECONDS;
     const isWarmup = elapsedSeconds < WARMUP_SECONDS;
 

@@ -1,6 +1,5 @@
 package org.example.p04concurrentleaderboard.leaderboard;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
